@@ -1,10 +1,11 @@
-package io.nikolamicic21.highperformancepersistenceapp.entity;
+package io.nikolamicic21.highperformancepersistenceapp.entity.onetoone;
 
 import jakarta.persistence.*;
 
 @Entity
-@Table(name = "post")
-public class Post {
+@Table(name = "uni_one_to_one_post")
+public class UniOneToOnePost {
+
     @Id
     @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "Post_SEQ")
     @SequenceGenerator(name = "Post_SEQ", allocationSize = 1)
@@ -29,5 +30,4 @@ public class Post {
     public void setId(Long id) {
         this.id = id;
     }
-
 }
