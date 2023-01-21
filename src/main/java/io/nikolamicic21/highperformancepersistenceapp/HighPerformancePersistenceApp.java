@@ -1,26 +1,13 @@
 package io.nikolamicic21.highperformancepersistenceapp;
 
-import io.nikolamicic21.highperformancepersistenceapp.entity.inheritance.joined.JoinedAnnouncement;
-import io.nikolamicic21.highperformancepersistenceapp.entity.inheritance.joined.JoinedBoard;
-import io.nikolamicic21.highperformancepersistenceapp.entity.inheritance.joined.JoinedPost;
-import io.nikolamicic21.highperformancepersistenceapp.entity.inheritance.joined.JoinedTopicStatistics;
-import io.nikolamicic21.highperformancepersistenceapp.entity.inheritance.mappedsuperclass.*;
-import io.nikolamicic21.highperformancepersistenceapp.entity.inheritance.singletable.SingleTableAnnouncement;
-import io.nikolamicic21.highperformancepersistenceapp.entity.inheritance.singletable.SingleTableBoard;
-import io.nikolamicic21.highperformancepersistenceapp.entity.inheritance.singletable.SingleTablePost;
-import io.nikolamicic21.highperformancepersistenceapp.entity.inheritance.singletable.SingleTableTopicStatistics;
-import io.nikolamicic21.highperformancepersistenceapp.entity.inheritance.tableperclass.TablePerClassAnnouncement;
-import io.nikolamicic21.highperformancepersistenceapp.entity.inheritance.tableperclass.TablePerClassBoard;
-import io.nikolamicic21.highperformancepersistenceapp.entity.inheritance.tableperclass.TablePerClassPost;
-import io.nikolamicic21.highperformancepersistenceapp.entity.inheritance.tableperclass.TablePerClassTopicStatistics;
+import io.nikolamicic21.highperformancepersistenceapp.entity.relationships.onetomany.bidirectionalonetomany.BiOneToManyPost;
+import io.nikolamicic21.highperformancepersistenceapp.entity.relationships.onetomany.bidirectionalonetomany.BiOneToManyPostComment;
+import io.nikolamicic21.highperformancepersistenceapp.entity.util.EntityManagerUtil;
 import jakarta.persistence.EntityManager;
-import jakarta.persistence.EntityManagerFactory;
-import jakarta.persistence.Persistence;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.sql.Timestamp;
-import java.time.LocalDateTime;
+import java.util.List;
 import java.util.function.Consumer;
 
 public class HighPerformancePersistenceApp {
@@ -28,155 +15,78 @@ public class HighPerformancePersistenceApp {
     private static final Logger LOG = LoggerFactory.getLogger(HighPerformancePersistenceApp.class);
 
     public static void main(String[] args) {
-        EntityManagerFactory emFactory = Persistence.createEntityManagerFactory("default");
+        final var emFactory = EntityManagerUtil.newEntityManagerFactory();
         EntityManager em = emFactory.createEntityManager();
 
-//        executeSingleTableRoutine(em);
-//        executeJoinedRoutine(em);
-//        executeTablePerClassRoutine(em);
-//        executeMapperSuperclassRoutine(em);
+//        executeBatchInsertRouting(em);
+//        executeBatchUpdateRouting(em);
+//        executeBatchDeleteRouting(em);
 
         em.close();
         emFactory.close();
     }
 
-    private static void executeSingleTableRoutine(EntityManager em) {
+    private static void executeBatchInsertRouting(EntityManager em) {
         doInTransaction(em, it -> {
-            final var board = new SingleTableBoard(
-                    "Board"
-            );
-            it.persist(board);
+            final var post1 = new BiOneToManyPost();
+            post1.setName("Post");
 
-            final var post = new SingleTablePost(
-                    "Inheritance",
-                    "John Doe",
-                    board,
-                    "Best practices"
-            );
+            final var postComment1 = new BiOneToManyPostComment();
+            postComment1.setMessage("post1postComment1");
+            post1.addPostComment(postComment1);
 
-            it.persist(post);
+            final var post2 = new BiOneToManyPost();
+            post2.setName("Post");
 
-            final var announcement = new SingleTableAnnouncement(
-                    "Release x.y.z",
-                    "John Doe",
-                    board,
-                    Timestamp.valueOf(LocalDateTime.now().plusMonths(1L))
-            );
+            final var postComment2 = new BiOneToManyPostComment();
+            postComment2.setMessage("post2postComment2");
+            post2.addPostComment(postComment2);
 
-            it.persist(announcement);
+            final var post3 = new BiOneToManyPost();
+            post3.setName("Post");
 
-            final var postStatistics = new SingleTableTopicStatistics(post);
-            postStatistics.incrementViews();
-            it.persist(postStatistics);
+            final var postComment3 = new BiOneToManyPostComment();
+            postComment3.setMessage("post2postComment2");
+            post3.addPostComment(postComment3);
 
-            final var announcementStatistics = new SingleTableTopicStatistics(announcement);
-            announcementStatistics.incrementViews();
-            it.persist(announcementStatistics);
+            it.persist(post1);
+            it.persist(post2);
+            it.persist(post3);
         });
     }
 
-    private static void executeJoinedRoutine(EntityManager em) {
+    private static void executeBatchUpdateRouting(EntityManager em) {
         doInTransaction(em, it -> {
-            final var board = new JoinedBoard(
-                    "Board"
-            );
-            it.persist(board);
+            List<BiOneToManyPostComment> comments = it.createQuery(
+                    "select comment from BiOneToManyPostComment comment join fetch comment.post",
+                    BiOneToManyPostComment.class
+            ).getResultList();
 
-            final var post = new JoinedPost(
-                    "Inheritance",
-                    "John Doe",
-                    board,
-                    "Best practices"
-            );
-
-            it.persist(post);
-
-            final var announcement = new JoinedAnnouncement(
-                    "Release x.y.z",
-                    "John Doe",
-                    board,
-                    Timestamp.valueOf(LocalDateTime.now().plusMonths(1L))
-            );
-
-            it.persist(announcement);
-
-            final var postStatistics = new JoinedTopicStatistics(post);
-            postStatistics.incrementViews();
-            it.persist(postStatistics);
-
-            final var announcementStatistics = new JoinedTopicStatistics(announcement);
-            announcementStatistics.incrementViews();
-            it.persist(announcementStatistics);
+            comments.forEach(comment -> {
+                comment.setMessage(comment.getMessage() + "!");
+                final var post = comment.getPost();
+                post.setName(post.getName() + "!");
+            });
         });
     }
 
-    private static void executeTablePerClassRoutine(EntityManager em) {
+    private static void executeBatchDeleteRouting(EntityManager em) {
         doInTransaction(em, it -> {
-            final var board = new TablePerClassBoard(
-                    "Board"
-            );
-            it.persist(board);
+            List<BiOneToManyPost> posts = it.createQuery(
+                    "select post from BiOneToManyPost post join fetch post.postComments",
+                    BiOneToManyPost.class
+            ).getResultList();
 
-            final var post = new TablePerClassPost(
-                    "Inheritance",
-                    "John Doe",
-                    board,
-                    "Best practices"
-            );
-
-            it.persist(post);
-
-            final var announcement = new TablePerClassAnnouncement(
-                    "Release x.y.z",
-                    "John Doe",
-                    board,
-                    Timestamp.valueOf(LocalDateTime.now().plusMonths(1L))
-            );
-
-            it.persist(announcement);
-
-            final var postStatistics = new TablePerClassTopicStatistics(post);
-            postStatistics.incrementViews();
-            it.persist(postStatistics);
-
-            final var announcementStatistics = new TablePerClassTopicStatistics(announcement);
-            announcementStatistics.incrementViews();
-            it.persist(announcementStatistics);
-        });
-    }
-
-    private static void executeMapperSuperclassRoutine(EntityManager em) {
-        doInTransaction(em, it -> {
-            final var board = new MappedSuperclassBoard(
-                    "Board"
-            );
-            it.persist(board);
-
-            final var post = new MappedSuperclassPost(
-                    "Inheritance",
-                    "John Doe",
-                    board,
-                    "Best practices"
-            );
-
-            it.persist(post);
-
-            final var announcement = new MappedSuperclassAnnouncement(
-                    "Release x.y.z",
-                    "John Doe",
-                    board,
-                    Timestamp.valueOf(LocalDateTime.now().plusMonths(1L))
-            );
-
-            it.persist(announcement);
-
-            final var postStatistics = new MappedSuperclassPostStatistics(post);
-            postStatistics.incrementViews();
-            it.persist(postStatistics);
-
-            final var announcementStatistics = new MappedSuperclassAnnouncementStatistics(announcement);
-            announcementStatistics.incrementViews();
-            it.persist(announcementStatistics);
+            posts.forEach(post -> {
+                for (final var commentIter = post.getPostComments().iterator(); commentIter.hasNext();) {
+                    final var comment = commentIter.next();
+                    comment.setPost(null);
+                    commentIter.remove();
+                    it.remove(comment);
+                }
+            });
+            it.flush();
+            posts.forEach(it::remove);
         });
     }
 
