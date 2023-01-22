@@ -15,7 +15,7 @@ public class BiOneToManyPostComment {
     @Column(name = "message", nullable = false, length = 50)
     private String message;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "post_id")
     private BiOneToManyPost post;
 

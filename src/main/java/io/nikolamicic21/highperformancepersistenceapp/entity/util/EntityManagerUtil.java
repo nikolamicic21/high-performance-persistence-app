@@ -72,7 +72,7 @@ public class EntityManagerUtil {
             dataSource.setPassword("hibernate_app");
 
             dataSource.setRewriteBatchedStatements(true);
-            dataSource.setUseCursorFetch(true);
+            dataSource.setUseCursorFetch(false);
             dataSource.setCachePrepStmts(true);
             dataSource.setUseServerPrepStmts(true);
             dataSource.setPrepStmtCacheSqlLimit(10);
