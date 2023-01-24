@@ -1,20 +1,14 @@
 package io.nikolamicic21.highperformancepersistenceapp;
 
-import io.nikolamicic21.highperformancepersistenceapp.entity.dto.PostCommentSummary;
-import io.nikolamicic21.highperformancepersistenceapp.entity.relationships.onetomany.bidirectionalonetomany.BiOneToManyPost;
-import io.nikolamicic21.highperformancepersistenceapp.entity.relationships.onetomany.bidirectionalonetomany.BiOneToManyPostComment;
-import io.nikolamicic21.highperformancepersistenceapp.entity.relationships.onetomany.bidirectionalonetomany.BiOneToManyPostComment_;
+import io.nikolamicic21.highperformancepersistenceapp.entity.secondlevelcache.readonly.ReadOnlyBiOneToManyPost;
+import io.nikolamicic21.highperformancepersistenceapp.entity.secondlevelcache.readonly.ReadOnlyBiOneToManyPostComment;
+import io.nikolamicic21.highperformancepersistenceapp.entity.util.CacheUtil;
 import io.nikolamicic21.highperformancepersistenceapp.entity.util.EntityManagerUtil;
-import io.nikolamicic21.highperformancepersistenceapp.entity.util.SqlStatementCountValidator;
 import io.nikolamicic21.highperformancepersistenceapp.entity.util.SqlUtil;
-import jakarta.persistence.EntityManager;
 import jakarta.persistence.EntityManagerFactory;
-import org.hibernate.Session;
-import org.hibernate.transform.AliasToBeanResultTransformer;
+import org.hibernate.SessionFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.util.Map;
 
 public class HighPerformancePersistenceApp {
 
@@ -27,78 +21,63 @@ public class HighPerformancePersistenceApp {
         emFactory.close();
     }
 
-    private static void executeFetchDtoAndPaginationJpqlRoutine() {
+    private static void executeCacheReadOnlyRoutine() {
+        // INSERT
+        final var postId = 4L;
+        final var postCommentId = 4L;
         SqlUtil.doInTransaction(emFactory, it -> {
-            final var postCommentSummaries = it.createQuery(
-                            "select new io.nikolamicic21.highperformancepersistenceapp.entity.dto.PostCommentSummary(p.id, p.name, c.message) " +
-                                    "from BiOneToManyPostComment c " +
-                                    "join c.post p " +
-                                    "order by p.id"
-                    )
-                    .setFirstResult(0)
-                    .setMaxResults(10)
-                    .getResultList();
-        });
-    }
+            final var post = new ReadOnlyBiOneToManyPost();
+            post.setId(postId);
+            post.setName("Post1");
+            it.persist(post);
 
-    private static void executeFetchDtoAndPaginationNamedQueryRoutine() {
+            final var comment = new ReadOnlyBiOneToManyPostComment();
+            comment.setId(postCommentId);
+            comment.setMessage("JDBC part review");
+            comment.setPost(post);
+            it.persist(comment);
+        });
+        CacheUtil.printCacheRegionStatistics(emFactory.unwrap(SessionFactory.class), ReadOnlyBiOneToManyPost.class.getName());
+        CacheUtil.printCacheRegionStatistics(emFactory.unwrap(SessionFactory.class), ReadOnlyBiOneToManyPost.class.getName() + ".postComments");
+        CacheUtil.printCacheRegionStatistics(emFactory.unwrap(SessionFactory.class), ReadOnlyBiOneToManyPostComment.class.getName());
+
         SqlUtil.doInTransaction(emFactory, it -> {
-            final var postCommentSummaries = it.createNamedQuery("PostCommentSummary")
-                    .setFirstResult(0)
-                    .setMaxResults(10)
-                    .getResultList();
+            final var foundPost = it.find(ReadOnlyBiOneToManyPost.class, postId);
         });
-    }
+        CacheUtil.printCacheRegionStatistics(emFactory.unwrap(SessionFactory.class), ReadOnlyBiOneToManyPost.class.getName());
+        CacheUtil.printCacheRegionStatistics(emFactory.unwrap(SessionFactory.class), ReadOnlyBiOneToManyPost.class.getName() + ".postComments");
 
-    private static void executeFetchDtoAndPaginationNativeSqlQueryRoutine() {
+        // UPDATE
+//        SqlUtil.doInTransaction(emFactory, it -> {
+//            final var foundPost = it.find(ReadOnlyBiOneToManyPost.class, postId);
+//            foundPost.setName(foundPost.getName() + "!");
+//            it.persist(foundPost);
+//        });
+//        CacheUtil.printCacheRegionStatistics(emFactory.unwrap(SessionFactory.class), ReadOnlyBiOneToManyPost.class.getName());
+//        CacheUtil.printCacheRegionStatistics(emFactory.unwrap(SessionFactory.class), ReadOnlyBiOneToManyPost.class.getName() + ".postComments");
+
+        // REMOVE Item from Collection
         SqlUtil.doInTransaction(emFactory, it -> {
-            final var postCommentSummaries = it.unwrap(Session.class).createNativeQuery(
-                            "select p.id as id, p.name as title, c.message as review " +
-                                    "from bi_one_to_many_post_comment c " +
-                                    "join bi_one_to_many_post p on c.post_id = p.id " +
-                                    "order by p.id"
-                    )
-                    .setFirstResult(0)
-                    .setMaxResults(10)
-                    .setResultListTransformer(new AliasToBeanResultTransformer(PostCommentSummary.class))
-                    .list();
-            System.out.println(postCommentSummaries.size());
+            final var foundPost = it.find(ReadOnlyBiOneToManyPost.class, postId);
+            final var removedComment = foundPost.getPostComments().remove(0);
+            removedComment.setPost(null);
         });
-    }
+        CacheUtil.printCacheRegionStatistics(emFactory.unwrap(SessionFactory.class), ReadOnlyBiOneToManyPost.class.getName());
+        CacheUtil.printCacheRegionStatistics(emFactory.unwrap(SessionFactory.class), ReadOnlyBiOneToManyPost.class.getName() + ".postComments");
+        CacheUtil.printCacheRegionStatistics(emFactory.unwrap(SessionFactory.class), ReadOnlyBiOneToManyPostComment.class.getName());
 
-    private static void executeFetchCustomEntityGraphRoutine() {
         SqlUtil.doInTransaction(emFactory, it -> {
-            SqlStatementCountValidator.reset();
-            final var postCommentGraph = it.createEntityGraph(
-                    BiOneToManyPostComment.class
-            );
-            postCommentGraph.addAttributeNodes(BiOneToManyPostComment_.post);
-
-            final var postComment = it.find(
-                    BiOneToManyPostComment.class,
-                    181L,
-                    Map.of("javax.persistence.fetchgraph", postCommentGraph)
-            );
-            postComment.getPost().getName();
-            SqlStatementCountValidator.assertSelectCount(1);
+            it.find(ReadOnlyBiOneToManyPost.class, postId);
         });
-    }
 
-    private static void executeFetchLazyInitializationExceptionRoutine() {
-        BiOneToManyPost post = null;
-        EntityManager em = emFactory.createEntityManager();
-        try {
-            em.getTransaction().begin();
-            final var postComment = em.find(BiOneToManyPostComment.class, 181L);
-            post = postComment.getPost();
-            em.getTransaction().commit();
-        } catch (Exception ex) {
-            LOG.error("Error happened", ex);
-            em.getTransaction().rollback();
-        } finally {
-            // DO NOTHING
-            em.close();
-        }
-        post.getName();
+        // DELETE
+        CacheUtil.printCacheRegionStatistics(emFactory.unwrap(SessionFactory.class), ReadOnlyBiOneToManyPost.class.getName());
+        CacheUtil.printCacheRegionStatistics(emFactory.unwrap(SessionFactory.class), ReadOnlyBiOneToManyPostComment.class.getName());
+        SqlUtil.doInTransaction(emFactory, it -> {
+            final var post = it.find(ReadOnlyBiOneToManyPost.class, postId);
+            it.remove(post);
+        });
+        CacheUtil.printCacheRegionStatistics(emFactory.unwrap(SessionFactory.class), ReadOnlyBiOneToManyPost.class.getName());
+        CacheUtil.printCacheRegionStatistics(emFactory.unwrap(SessionFactory.class), ReadOnlyBiOneToManyPostComment.class.getName());
     }
 }

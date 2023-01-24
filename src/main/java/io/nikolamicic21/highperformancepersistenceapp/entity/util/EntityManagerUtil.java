@@ -41,6 +41,8 @@ public class EntityManagerUtil {
         final var properties = new Properties();
         properties.put("hibernate.hbm2ddl.auto", "update");
         properties.put("hibernate.dialect", MySQLDialect.class.getName());
+        properties.put("hibernate.cache.use_second_level_cache", true);
+        properties.put("hibernate.cache.region.factory_class", "jcache");
 
         DataSource dataSource = dataSource();
         properties.put("hibernate.connection.datasource", dataSource);
@@ -109,7 +111,9 @@ public class EntityManagerUtil {
                 "io.nikolamicic21.highperformancepersistenceapp.entity.relationships.manytoone.UniManyToOnePostComment",
                 "io.nikolamicic21.highperformancepersistenceapp.entity.relationships.manytoone.UniManyToOnePost",
                 "io.nikolamicic21.highperformancepersistenceapp.entity.relationships.onetomany.bidirectionalonetomany.BiOneToManyPost",
-                "io.nikolamicic21.highperformancepersistenceapp.entity.relationships.onetomany.bidirectionalonetomany.BiOneToManyPostComment"
+                "io.nikolamicic21.highperformancepersistenceapp.entity.relationships.onetomany.bidirectionalonetomany.BiOneToManyPostComment",
+                "io.nikolamicic21.highperformancepersistenceapp.entity.secondlevelcache.readonly.ReadOnlyBiOneToManyPost",
+                "io.nikolamicic21.highperformancepersistenceapp.entity.secondlevelcache.readonly.ReadOnlyBiOneToManyPostComment"
         );
     }
 
