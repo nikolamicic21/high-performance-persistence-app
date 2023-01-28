@@ -1,12 +1,11 @@
 package io.nikolamicic21.highperformancepersistenceapp;
 
-import io.nikolamicic21.highperformancepersistenceapp.entity.secondlevelcache.readonly.ReadOnlyBiOneToManyPost;
-import io.nikolamicic21.highperformancepersistenceapp.entity.secondlevelcache.readonly.ReadOnlyBiOneToManyPostComment;
-import io.nikolamicic21.highperformancepersistenceapp.entity.util.CacheUtil;
+import io.nikolamicic21.highperformancepersistenceapp.entity.concurrencycontrol.optimisticlocks.OptimisticLocksBiOneToManyPost;
+import io.nikolamicic21.highperformancepersistenceapp.entity.concurrencycontrol.perimissticlocks.PessimisticLocksBiOneToManyPost;
 import io.nikolamicic21.highperformancepersistenceapp.entity.util.EntityManagerUtil;
 import io.nikolamicic21.highperformancepersistenceapp.entity.util.SqlUtil;
 import jakarta.persistence.EntityManagerFactory;
-import org.hibernate.SessionFactory;
+import jakarta.persistence.LockModeType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -18,66 +17,67 @@ public class HighPerformancePersistenceApp {
 
     public static void main(String[] args) {
         emFactory = EntityManagerUtil.newEntityManagerFactory();
+
+        executeInheritedCascadeLockRoutine();
+
         emFactory.close();
+        SqlUtil.close();
     }
 
-    private static void executeCacheReadOnlyRoutine() {
-        // INSERT
-        final var postId = 4L;
-        final var postCommentId = 4L;
+    private static void executeInsertUpdateRoutine() {
         SqlUtil.doInTransaction(emFactory, it -> {
-            final var post = new ReadOnlyBiOneToManyPost();
-            post.setId(postId);
-            post.setName("Post1");
+            final var post = new OptimisticLocksBiOneToManyPost();
+            post.setName("Post");
+
             it.persist(post);
 
-            final var comment = new ReadOnlyBiOneToManyPostComment();
-            comment.setId(postCommentId);
-            comment.setMessage("JDBC part review");
-            comment.setPost(post);
-            it.persist(comment);
+            it.flush();
+            post.setName("Post!!!");
         });
-        CacheUtil.printCacheRegionStatistics(emFactory.unwrap(SessionFactory.class), ReadOnlyBiOneToManyPost.class.getName());
-        CacheUtil.printCacheRegionStatistics(emFactory.unwrap(SessionFactory.class), ReadOnlyBiOneToManyPost.class.getName() + ".postComments");
-        CacheUtil.printCacheRegionStatistics(emFactory.unwrap(SessionFactory.class), ReadOnlyBiOneToManyPostComment.class.getName());
+    }
+
+    private static void executeSyncUpdateRoutine() {
+        SqlUtil.doInTransaction(emFactory, it -> {
+            final var post = it.find(OptimisticLocksBiOneToManyPost.class, 208L);
+            SqlUtil.executeSync(() ->
+                    SqlUtil.doInTransaction(emFactory, _it -> {
+                        final var post1 = _it.find(OptimisticLocksBiOneToManyPost.class, 208L);
+                        post1.setName("Post121");
+                    })
+            );
+            post.setName("Post212");
+        });
+    }
+
+    private static void executePessimisticWriteLockRoutine() {
+        final var post = new PessimisticLocksBiOneToManyPost();
+        SqlUtil.doInTransaction(emFactory, it -> {
+            post.setName("post");
+
+            it.persist(post);
+        });
 
         SqlUtil.doInTransaction(emFactory, it -> {
-            final var foundPost = it.find(ReadOnlyBiOneToManyPost.class, postId);
+            it.find(PessimisticLocksBiOneToManyPost.class, post.getId(), LockModeType.PESSIMISTIC_WRITE);
         });
-        CacheUtil.printCacheRegionStatistics(emFactory.unwrap(SessionFactory.class), ReadOnlyBiOneToManyPost.class.getName());
-        CacheUtil.printCacheRegionStatistics(emFactory.unwrap(SessionFactory.class), ReadOnlyBiOneToManyPost.class.getName() + ".postComments");
+    }
 
-        // UPDATE
-//        SqlUtil.doInTransaction(emFactory, it -> {
-//            final var foundPost = it.find(ReadOnlyBiOneToManyPost.class, postId);
-//            foundPost.setName(foundPost.getName() + "!");
-//            it.persist(foundPost);
-//        });
-//        CacheUtil.printCacheRegionStatistics(emFactory.unwrap(SessionFactory.class), ReadOnlyBiOneToManyPost.class.getName());
-//        CacheUtil.printCacheRegionStatistics(emFactory.unwrap(SessionFactory.class), ReadOnlyBiOneToManyPost.class.getName() + ".postComments");
-
-        // REMOVE Item from Collection
+    private static void executePessimisticReadLockRoutine() {
+        final var post = new PessimisticLocksBiOneToManyPost();
         SqlUtil.doInTransaction(emFactory, it -> {
-            final var foundPost = it.find(ReadOnlyBiOneToManyPost.class, postId);
-            final var removedComment = foundPost.getPostComments().remove(0);
-            removedComment.setPost(null);
+            post.setName("post");
+
+            it.persist(post);
         });
-        CacheUtil.printCacheRegionStatistics(emFactory.unwrap(SessionFactory.class), ReadOnlyBiOneToManyPost.class.getName());
-        CacheUtil.printCacheRegionStatistics(emFactory.unwrap(SessionFactory.class), ReadOnlyBiOneToManyPost.class.getName() + ".postComments");
-        CacheUtil.printCacheRegionStatistics(emFactory.unwrap(SessionFactory.class), ReadOnlyBiOneToManyPostComment.class.getName());
 
         SqlUtil.doInTransaction(emFactory, it -> {
-            it.find(ReadOnlyBiOneToManyPost.class, postId);
+            it.find(PessimisticLocksBiOneToManyPost.class, post.getId(), LockModeType.PESSIMISTIC_READ);
         });
+    }
 
-        // DELETE
-        CacheUtil.printCacheRegionStatistics(emFactory.unwrap(SessionFactory.class), ReadOnlyBiOneToManyPost.class.getName());
-        CacheUtil.printCacheRegionStatistics(emFactory.unwrap(SessionFactory.class), ReadOnlyBiOneToManyPostComment.class.getName());
+    private static void executeInheritedCascadeLockRoutine() {
         SqlUtil.doInTransaction(emFactory, it -> {
-            final var post = it.find(ReadOnlyBiOneToManyPost.class, postId);
-            it.remove(post);
+            it.find(PessimisticLocksBiOneToManyPost.class, 209L);
         });
-        CacheUtil.printCacheRegionStatistics(emFactory.unwrap(SessionFactory.class), ReadOnlyBiOneToManyPost.class.getName());
-        CacheUtil.printCacheRegionStatistics(emFactory.unwrap(SessionFactory.class), ReadOnlyBiOneToManyPostComment.class.getName());
     }
 }

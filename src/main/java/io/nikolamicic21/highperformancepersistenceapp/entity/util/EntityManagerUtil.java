@@ -113,7 +113,11 @@ public class EntityManagerUtil {
                 "io.nikolamicic21.highperformancepersistenceapp.entity.relationships.onetomany.bidirectionalonetomany.BiOneToManyPost",
                 "io.nikolamicic21.highperformancepersistenceapp.entity.relationships.onetomany.bidirectionalonetomany.BiOneToManyPostComment",
                 "io.nikolamicic21.highperformancepersistenceapp.entity.secondlevelcache.readonly.ReadOnlyBiOneToManyPost",
-                "io.nikolamicic21.highperformancepersistenceapp.entity.secondlevelcache.readonly.ReadOnlyBiOneToManyPostComment"
+                "io.nikolamicic21.highperformancepersistenceapp.entity.secondlevelcache.readonly.ReadOnlyBiOneToManyPostComment",
+                "io.nikolamicic21.highperformancepersistenceapp.entity.concurrencycontrol.optimisticlocks.OptimisticLocksBiOneToManyPost",
+                "io.nikolamicic21.highperformancepersistenceapp.entity.concurrencycontrol.optimisticlocks.OptimisticLocksBiOneToManyPostComment",
+                "io.nikolamicic21.highperformancepersistenceapp.entity.concurrencycontrol.perimissticlocks.PessimisticLocksBiOneToManyPost",
+                "io.nikolamicic21.highperformancepersistenceapp.entity.concurrencycontrol.perimissticlocks.PessimisticLocksBiOneToManyPostComment"
         );
     }
 
